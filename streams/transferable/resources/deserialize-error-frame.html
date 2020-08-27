@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<script src="/resources/testharness.js"></script>
+<script src="create-wasm-module.js"></script>
+<script>
+async_test(t => {
+  window.addEventListener('message', async evt => {
+    if (evt.data.constructor.name !== 'WritableStream') {
+      return;
+    }
+    const ws = evt.data;
+    const writer = ws.getWriter();
+    const module = await createWasmModule();
+    writer.write(module);
+    try {
+      await writer.closed;
+    } catch (e) {
+      t.step(() => {
+        assert_equals(e.constructor.name, 'DOMException', 'should be a DOMException');
+        assert_equals(e.name, 'DataCloneError', 'should be a DataCloneError');
+      });
+    }
+    t.done();
+    // Signal that this test is done. When both tests are done the iframe will
+    // be removed.
+    parent.postMessage(1, '*');
+  });
+}, 'a WritableStream deserialization failure should result in a DataCloneError');
+
+async_test(t => {
+  window.addEventListener('message', async evt => {
+    if (evt.data.constructor.name !== 'ReadableStream') {
+      return;
+    }
+    const rs = evt.data;
+    const reader = rs.getReader();
+    try {
+      await reader.read();
+    } catch (e) {
+      t.step(() => {
+        assert_equals(e.constructor.name, 'DOMException', 'should be a DOMException');
+        assert_equals(e.name, 'DataCloneError', 'should be a DataCloneError');
+      });
+    }
+    t.done();
+    // Signal that this test is done. When both tests are done the iframe will
+    // be removed.
+    parent.postMessage(2, '*');
+  });
+}, 'a ReadableStream deserialization failure should result in a DataCloneError');
+</script>
